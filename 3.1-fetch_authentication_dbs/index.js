@@ -1,43 +1,55 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const jwtPassword = "123456";
+
+mongoose.connect(
+  "mongodb+srv://Shivam2024:Shivam%402024@cluster0.er8iil9.mongodb.net/newDB"
+);
+
+const User = mongoose.model("User", {
+  name: String,
+  username: String,
+  password: String,
+});
 
 const app = express();
 app.use(express.json());
 
-const ALL_USERS = [
-  {
-    username: "harkirat@gmail.com",
-    password: "123",
-    name: "harkirat singh",
-  },
-  {
-    username: "raman@gmail.com",
-    password: "123321",
-    name: "Raman singh",
-  },
-  {
-    username: "priya@gmail.com",
-    password: "123321",
-    name: "Priya kumari",
-  },
-];
-
-function userExists(username, password) {
-  // write logic to return true or false if this user exists
-  // in ALL_USERS array
-  for (let i = 0; i < ALL_USERS.length; i++) {
-    if (ALL_USERS[i].username == username && ALL_USERS[i].password == password)
-      return true;
-  }
-  return false;
+async function userExists(name, username) {
+  const user = await User.findOne({ name, username });
+  return user !== null;
 }
 
-app.post("/signin", function (req, res) {
+app.post("/signup", async (req, res) => {
+  const name = req.body.name;
   const username = req.body.username;
   const password = req.body.password;
 
-  if (!userExists(username, password)) {
+  if (await userExists(name, username)) {
+    res.status(400).json({
+      msg: "User alreay exists",
+    });
+  } else {
+    const user = new User({
+      name: name,
+      username: username,
+      password: password,
+    });
+
+    user.save().then(() => console.log("done"));
+
+    res.status(200).json({
+      msg: "Signed Up Successfully!",
+    });
+  }
+});
+
+app.post("/signin", async function (req, res) {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  if (userExists(username, password)) {
     return res.status(403).json({
       msg: "User doesnt exist in our in memory db",
     });
@@ -50,14 +62,16 @@ app.post("/signin", function (req, res) {
 });
 
 app.get("/users", function (req, res) {
-  const token = req.headers.Authorization;
-  const decoded = jwt.verify(token, jwtPassword);
-  //   const username = decoded.username;
-  // return a list of users other than this username
-  res.status(200).json({
-    users: ALL_USERS,
-  });
-  //   console.log("aala");
+  const token = req.headers.authorization;
+  try {
+    const decoded = jwt.verify(token, jwtPassword);
+    const username = decoded.username;
+    // return a list of users other than this username from the database
+  } catch (err) {
+    return res.status(403).json({
+      msg: "Invalid token",
+    });
+  }
 });
 
 app.listen(3000);
